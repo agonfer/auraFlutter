@@ -24,6 +24,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Aura necesita acceso al micrófono para reconocer tu voz y poder asistirte.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Aura necesita acceso a la cámara para poder ayudarte a identificar objetos y texto.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Aura necesita acceso a tu galería de fotos para analizar imágenes cuando lo solicites.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Aura necesita acceso al reconocimiento de voz para entender tus comandos.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -31,15 +39,11 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

@@ -18,21 +18,869 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Aura - Asistente por voz para personas con discapacidad visual">
 
   <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="aura">
+  <meta name="apple-mobile-web-app-title" content="Aura">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>aura</title>
+  <title>Aura</title>
   <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+
+  <style>
+    @font-face {
+      font-family: 'Pecita';
+      src: url('https://fonts.cdnfonts.com/s/21045/Pecita.woff') format('woff');
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #1a0e3b;
+      font-family: 'Pecita', 'Pacifico', cursive, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      perspective: 1000px;
+    }
+    
+    .text-area {
+      margin: 20px;
+      padding: 20px;
+      max-width: 600px;
+      height: 80px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    /* Estilos para el texto animado */
+    .aura-text {
+      font-family: 'Pecita', cursive;
+      font-size: 60px;
+      color: white;
+      margin-bottom: 30px;
+      position: relative;
+      display: inline-block;
+      white-space: nowrap;
+      font-weight: 300;
+      text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+      opacity: 0.85;
+      letter-spacing: 2px;
+    }
+    
+    .aura-text span {
+      opacity: 0;
+      position: relative;
+      display: inline-block;
+      animation-name: fadeIn;
+      animation-duration: 0.5s;
+      animation-fill-mode: forwards;
+    }
+    
+    .aura-text span:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+    
+    .aura-text span:nth-child(2) {
+      animation-delay: 0.7s;
+    }
+    
+    .aura-text span:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+    
+    .aura-text span:nth-child(4) {
+      animation-delay: 1.7s;
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .orb-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      margin: 40px 0;
+      transform-style: preserve-3d;
+      perspective: 1000px;
+      opacity: 0; /* Inicialmente oculto */
+      transform: scale(0.8);
+      transition: opacity 1.5s ease-in-out, transform 1.5s ease-in-out;
+    }
+    
+    .orb-container.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    .siri-orb {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg);
+      border-radius: 50%;
+      background-color: rgba(0, 0, 50, 0.1);
+      transform-style: preserve-3d;
+      transition: transform 0.2s ease-out;
+      overflow: hidden;
+      box-shadow: 
+        0 0 40px var(--orb-glow),
+        0 0 80px rgba(0, 191, 255, 0.4),
+        inset 0 0 30px rgba(0, 191, 255, 0.2);
+    }
+    
+    /* Fondo del orbe con degradado similar a la imagen */
+    .orb-background {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at center,
+        rgba(0, 0, 60, 0.2),
+        rgba(0, 0, 80, 0.6) 80%
+      );
+      z-index: 1;
+    }
+    
+    /* Contenedor para las líneas curvas */
+    .curved-lines-container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      z-index: 2;
+    }
+    
+    /* Líneas curvas similares a la imagen */
+    .curved-line {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      opacity: 0.7;
+    }
+    
+    .curved-line-1 {
+      background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        transparent 20%,
+        var(--orb-blue) 30%,
+        var(--orb-white) 40%,
+        transparent 50%,
+        transparent 100%
+      );
+      animation: rotate 20s linear infinite;
+    }
+    
+    .curved-line-2 {
+      background: conic-gradient(
+        from 120deg,
+        transparent 0%,
+        transparent 20%,
+        var(--orb-purple) 30%,
+        var(--orb-white) 40%,
+        transparent 50%,
+        transparent 100%
+      );
+      animation: rotate 25s linear infinite reverse;
+    }
+    
+    .curved-line-3 {
+      background: conic-gradient(
+        from 240deg,
+        transparent 0%,
+        transparent 20%,
+        var(--orb-pink) 30%,
+        var(--orb-white) 40%,
+        transparent 50%,
+        transparent 100%
+      );
+      animation: rotate 30s linear infinite;
+    }
+    
+    /* Líneas de luz que se cruzan */
+    .light-beam {
+      position: absolute;
+      width: 300px;
+      height: 2px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(
+        90deg,
+        transparent,
+        var(--orb-blue),
+        var(--orb-white),
+        var(--orb-blue),
+        transparent
+      );
+      transform-origin: center;
+      opacity: 0.8;
+      filter: blur(1px);
+      z-index: 3;
+    }
+    
+    .beam-1 {
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+    
+    .beam-2 {
+      transform: translate(-50%, -50%) rotate(135deg);
+      background: linear-gradient(
+        90deg,
+        transparent,
+        var(--orb-purple),
+        var(--orb-white),
+        var(--orb-purple),
+        transparent
+      );
+    }
+    
+    /* Efecto de ondas */
+    .wave-effect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      z-index: 4;
+      overflow: hidden;
+    }
+    
+    .wave {
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      top: -50%;
+      left: -50%;
+      background: repeating-radial-gradient(
+        circle at center,
+        transparent 0px,
+        transparent 5px,
+        rgba(0, 191, 255, 0.05) 6px,
+        transparent 7px,
+        transparent 10px
+      );
+      opacity: 0.5;
+      animation: pulse 8s infinite alternate ease-in-out;
+    }
+    
+    .wave-2 {
+      background: repeating-radial-gradient(
+        circle at center,
+        transparent 0px,
+        transparent 8px,
+        rgba(138, 43, 226, 0.05) 9px,
+        transparent 10px,
+        transparent 15px
+      );
+      animation: pulse 10s infinite alternate-reverse ease-in-out;
+    }
+    
+    /* Centro brillante */
+    .bright-center {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at center,
+        var(--orb-white) 0%,
+        rgba(255, 255, 255, 0.8) 20%,
+        rgba(0, 191, 255, 0.5) 40%,
+        rgba(138, 43, 226, 0.3) 60%,
+        transparent 80%
+      );
+      filter: blur(5px);
+      z-index: 5;
+    }
+    
+    /* Líneas curvas SVG */
+    .svg-container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: 6;
+    }
+    
+    /* Efectos de luz y brillo */
+    .glow-effect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 
+        inset 0 0 30px rgba(0, 191, 255, 0.3),
+        inset 0 0 60px rgba(138, 43, 226, 0.2);
+      z-index: 7;
+    }
+    
+    /* Efecto de cristal */
+    .orb-glass {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 30% 30%,
+        rgba(255, 255, 255, 0.1),
+        rgba(0, 0, 60, 0.2) 80%
+      );
+      box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 9;
+    }
+    
+    /* Reflejos */
+    .reflection {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      z-index: 10;
+      overflow: hidden;
+    }
+    
+    .reflection-top {
+      position: absolute;
+      width: 140%;
+      height: 100%;
+      top: -70%;
+      left: -20%;
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.3),
+        transparent 60%
+      );
+      transform: rotate(25deg);
+      border-radius: 50%;
+      filter: blur(2px);
+    }
+    
+    .reflection-spot {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 25%;
+      left: 30%;
+      background: radial-gradient(
+        circle at center,
+        rgba(255, 255, 255, 0.9),
+        transparent 80%
+      );
+      border-radius: 50%;
+      filter: blur(1px);
+    }
+    
+    /* Borde del orbe */
+    .orb-border {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 191, 255, 0.3);
+      box-shadow: 
+        inset 0 0 20px rgba(0, 191, 255, 0.2),
+        0 0 15px rgba(0, 191, 255, 0.3);
+      z-index: 12;
+    }
+    
+    /* Fondo con gradiente */
+    .bg-gradient {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        135deg,
+        #6b5de5 0%,
+        #8a7af2 25%,
+        #f27dcf 50%,
+        #f5a58d 75%,
+        #f9c98d 100%
+      );
+      z-index: -1;
+      animation: gradientShift 15s infinite alternate ease-in-out;
+    }
+    
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 0%;
+      }
+      100% {
+        background-position: 100% 100%;
+      }
+    }
+    
+    .response-area {
+      margin-top: 30px;
+      min-height: 80px;
+      text-align: center;
+      font-family: 'Pecita', 'Pacifico', cursive;
+      font-weight: 400;
+      font-size: 20px;
+      opacity: 0.9;
+    }
+
+    /* Estilos para la aplicación Flutter */
+    #flutter-app {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+    }
+    
+    .loading-text {
+      margin-top: 20px;
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+    
+    #camera-feed {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      opacity: 0.01;
+      pointer-events: none;
+      right: 0;
+      bottom: 0;
+      z-index: -1;
+    }
+
+    /* Animaciones más dinámicas */
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.05); opacity: 0.7; }
+      100% { transform: scale(1); opacity: 0.5; }
+    }
+    
+    /* Colores basados en la imagen de referencia */
+    :root {
+      --orb-blue: #00BFFF;
+      --orb-blue-dark: #0080FF;
+      --orb-purple: #8A2BE2;
+      --orb-pink: #FF69B4;
+      --orb-white: #FFFFFF;
+      --orb-glow: rgba(0, 191, 255, 0.5);
+    }
+  </style>
+
+  <script>
+    // La función `serviceWorkerVersion` se reemplazará con la versión del service worker durante el build.
+    var serviceWorkerVersion = null;
+  </script>
+  <!-- Este script agrega el flutter-specific service worker y lo habilita -->
+  <script src="flutter.js" defer></script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <div class="bg-gradient"></div>
+  
+  <div class="loading-screen">
+    <div class="container">
+      <div class="text-area">
+        <!-- Texto Aura con animación letra por letra -->
+        <h1 class="aura-text">
+          <span>A</span><span>u</span><span>r</span><span>a</span>
+        </h1>
+      </div>
+      
+      <div class="orb-container" id="orb-container">
+        <div class="siri-orb" id="siri-orb">
+          <div class="orb-background"></div>
+          
+          <!-- Líneas curvas basadas en la imagen de referencia -->
+          <div class="curved-lines-container">
+            <div class="curved-line curved-line-1"></div>
+            <div class="curved-line curved-line-2"></div>
+            <div class="curved-line curved-line-3"></div>
+          </div>
+          
+          <!-- Líneas de luz que se cruzan -->
+          <div class="light-beam beam-1"></div>
+          <div class="light-beam beam-2"></div>
+          
+          <!-- Efecto de ondas -->
+          <div class="wave-effect">
+            <div class="wave"></div>
+            <div class="wave wave-2"></div>
+          </div>
+          
+          <!-- Centro brillante -->
+          <div class="bright-center"></div>
+          
+          <!-- Contenedor SVG para líneas curvas precisas -->
+          <div class="svg-container">
+            <svg width="100%" height="100%" viewBox="0 0 280 280">
+              <!-- Curvas similares a la imagen -->
+              <path d="M140,40 Q200,140 140,240" fill="none" stroke="rgba(0,191,255,0.6)" stroke-width="1" />
+              <path d="M140,40 Q80,140 140,240" fill="none" stroke="rgba(138,43,226,0.6)" stroke-width="1" />
+              <path d="M40,140 Q140,80 240,140" fill="none" stroke="rgba(255,105,180,0.6)" stroke-width="1" />
+              <path d="M40,140 Q140,200 240,140" fill="none" stroke="rgba(0,191,255,0.6)" stroke-width="1" />
+            </svg>
+          </div>
+          
+          <!-- Efectos de luz y brillo -->
+          <div class="glow-effect"></div>
+          
+          <!-- Efecto de cristal -->
+          <div class="orb-glass"></div>
+          
+          <!-- Reflejos -->
+          <div class="reflection">
+            <div class="reflection-top"></div>
+            <div class="reflection-spot"></div>
+          </div>
+          
+          <!-- Borde del orbe -->
+          <div class="orb-border"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <video id="camera-feed" autoplay playsinline muted></video>
+  <div id="flutter-app"></div>
+
+  <script>
+    // Variables para controlar la animación
+    document.addEventListener('DOMContentLoaded', function() {
+      const orbContainer = document.getElementById('orb-container');
+      const siriOrb = document.getElementById('siri-orb');
+      
+      // Mostrar el orb después de que termine la animación de texto (2.5s)
+      setTimeout(function() {
+        orbContainer.classList.add('visible');
+        initOrbInteraction(orbContainer, siriOrb);
+      }, 2500);
+    });
+    
+    // Función para inicializar las interacciones del orb
+    function initOrbInteraction(orbContainer, siriOrb) {
+      // Variables para el seguimiento del movimiento del mouse
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetX = 0;
+      let targetY = 0;
+      let isMoving = false;
+      
+      // Movimiento suave basado en el movimiento del mouse
+      document.addEventListener('mousemove', function(e) {
+        // Calcular la posición relativa del mouse
+        mouseX = (e.clientX / window.innerWidth - 0.5) * 2; // -1 a 1
+        mouseY = (e.clientY / window.innerHeight - 0.5) * 2; // -1 a 1
+        
+        isMoving = true;
+      });
+      
+      // Función de animación para un movimiento más suave
+      function animateOrb() {
+        if (isMoving) {
+          // Interpolación suave
+          targetX += (mouseX * 15 - targetX) * 0.1;
+          targetY += (mouseY * -15 - targetY) * 0.1;
+          
+          // Aplicar rotación con límites
+          siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg)`;
+          
+          // Las animaciones CSS se encargan ahora de las rotaciones de las capas internas
+        }
+        
+        requestAnimationFrame(animateOrb);
+      }
+      
+      // Iniciar la animación
+      animateOrb();
+      
+      // Soporte para dispositivos móviles
+      siriOrb.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          mouseX = (touch.clientX / window.innerWidth - 0.5) * 2;
+          mouseY = (touch.clientY / window.innerHeight - 0.5) * 2;
+          isMoving = true;
+        }
+      });
+      
+      // Soporte para giroscopio en dispositivos móviles
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', function(e) {
+          if (e.beta && e.gamma) {
+            mouseX = e.gamma / 45; // Convertir a un rango aproximado de -1 a 1
+            mouseY = e.beta / 45; // Convertir a un rango aproximado de -1 a 1
+            isMoving = true;
+          }
+        });
+      }
+      
+      // Efecto de clic/toque
+      siriOrb.addEventListener('mousedown', function() {
+        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(0.95)`;
+      });
+      
+      siriOrb.addEventListener('mouseup', function() {
+        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(1)`;
+      });
+      
+      siriOrb.addEventListener('touchstart', function() {
+        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(0.95)`;
+      });
+      
+      siriOrb.addEventListener('touchend', function() {
+        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(1)`;
+      });
+    }
+
+    // Inicializar la cámara web y el micrófono y mantenerlos activos en segundo plano
+    let cameraStream = null;
+    let microphoneStream = null;
+
+    // Función para iniciar la cámara
+    async function initCamera() {
+      try {
+        const videoElement = document.getElementById('camera-feed');
+        
+        // Solicitar acceso a la cámara con resolución baja y sin audio
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            frameRate: { ideal: 10 }
+          },
+          audio: false
+        });
+        
+        // Guardar la referencia al stream para usarla más tarde
+        cameraStream = stream;
+        
+        // Conectar el stream al elemento video
+        if (videoElement) {
+          videoElement.srcObject = stream;
+          console.log('Cámara web inicializada y mantenida activa');
+        }
+        
+        // Asegurarse de que la cámara no se detenga si el video es pausado
+        videoElement.addEventListener('pause', () => {
+          videoElement.play().catch(e => console.log('Error al reanudar video:', e));
+        });
+      } catch (err) {
+        console.error('Error al inicializar la cámara web:', err);
+      }
+    }
+
+    // Función para inicializar el micrófono y mantenerlo activo
+    async function initMicrophone() {
+      try {
+        // Crear un contexto de audio
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Solicitar acceso al micrófono
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+        
+        // Guardar la referencia al stream para usarla más tarde
+        microphoneStream = stream;
+        
+        // Conectar el micrófono a un analizador de audio silencioso para mantenerlo activo
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.minDecibels = -90;
+        analyser.maxDecibels = -10;
+        analyser.smoothingTimeConstant = 0.85;
+        
+        // Conectar al destino silencioso (no a audioContext.destination para evitar retroalimentación)
+        source.connect(analyser);
+        
+        console.log('Micrófono inicializado y mantenido activo');
+        
+        return true;
+      } catch (err) {
+        console.error('Error al inicializar el micrófono:', err);
+        return false;
+      }
+    }
+
+    // Función para mantener la cámara activa
+    function keepCameraAlive() {
+      const videoElement = document.getElementById('camera-feed');
+      if (videoElement && videoElement.paused && cameraStream) {
+        videoElement.play().catch(e => console.log('Error al mantener la cámara activa:', e));
+      }
+      
+      // Comprobar periódicamente que la cámara sigue activa
+      setTimeout(keepCameraAlive, 2000);
+    }
+
+    // Función para verificar y reiniciar el micrófono si es necesario
+    function keepMicrophoneAlive() {
+      if (microphoneStream) {
+        const audioTracks = microphoneStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          // Si hay alguna pista de audio inactiva, intentar reiniciar el micrófono
+          if (!audioTracks[0].enabled || !audioTracks[0].readyState === 'live') {
+            audioTracks[0].enabled = true;
+            console.log('Pista de micrófono reactivada');
+          }
+        } else {
+          // Si no hay pistas, intentar reinicializar
+          initMicrophone().catch(err => console.error('Error al reiniciar micrófono:', err));
+        }
+      }
+      
+      // Comprobar periódicamente que el micrófono sigue activo
+      setTimeout(keepMicrophoneAlive, 3000);
+    }
+
+    // Iniciar dispositivos cuando la página se cargue
+    window.addEventListener('DOMContentLoaded', async function() {
+      // Inicializar ambos dispositivos
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        // Iniciar cámara y micrófono en paralelo
+        try {
+          await Promise.all([
+            initCamera().then(() => keepCameraAlive()),
+            initMicrophone().then(() => keepMicrophoneAlive())
+          ]);
+          console.log('Cámara y micrófono inicializados correctamente');
+        } catch (err) {
+          console.error('Error inicializando dispositivos:', err);
+          // Intentar inicializar los dispositivos de forma individual si la inicialización conjunta falla
+          initCamera().then(() => keepCameraAlive()).catch(e => console.error('Error con cámara:', e));
+          initMicrophone().then(() => keepMicrophoneAlive()).catch(e => console.error('Error con micrófono:', e));
+        }
+      } else {
+        console.error('getUserMedia no está disponible en este navegador');
+      }
+    });
+
+    // Asegurarse de que los dispositivos permanezcan activos cuando la página vuelve a estar visible
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        // Reactivar cámara
+        if (cameraStream) {
+          const videoElement = document.getElementById('camera-feed');
+          if (videoElement) {
+            videoElement.play().catch(e => console.log('Error al reanudar la cámara:', e));
+          }
+          
+          // Reactivar las pistas de video
+          cameraStream.getVideoTracks().forEach(track => {
+            if (!track.enabled) {
+              track.enabled = true;
+              console.log('Pista de video reactivada');
+            }
+          });
+        }
+        
+        // Reactivar micrófono
+        if (microphoneStream) {
+          microphoneStream.getAudioTracks().forEach(track => {
+            if (!track.enabled) {
+              track.enabled = true;
+              console.log('Pista de audio reactivada');
+            }
+          });
+        }
+      }
+    });
+  </script>
+  
+  <script>
+    window.addEventListener('load', function(ev) {
+      // Mostrar la pantalla de carga con el orbe mientras se carga Flutter
+      const loadingScreen = document.querySelector('.loading-screen');
+      const flutterApp = document.getElementById('flutter-app');
+      
+      // Descarga el archivo main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine({
+            hostElement: document.querySelector('#flutter-app')
+          }).then(function(appRunner) {
+            // Una vez que Flutter está listo, mostrar la app y ocultar la pantalla de carga
+            appRunner.runApp();
+            
+            // Dar tiempo para que Flutter se inicialice completamente
+            setTimeout(function() {
+              flutterApp.style.opacity = '1';
+              loadingScreen.style.display = 'none';
+            }, 2000);
+          });
+        }
+      });
+    });
+  </script>
 </body>
 </html>
