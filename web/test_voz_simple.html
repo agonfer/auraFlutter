@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Simple de Voz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #log {
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Test Simple de Reconocimiento de Voz</h1>
+    
+    <div id="status" class="status info">Preparando...</div>
+    
+    <div>
+        <button onclick="testMicrofono()">1. Probar Micrófono</button>
+        <button onclick="testSintesis()">2. Probar Síntesis de Voz</button>
+        <button onclick="testReconocimiento()">3. Probar Reconocimiento</button>
+        <button onclick="testCompleto()">4. Test Completo</button>
+    </div>
+    
+    <h2>Registro de eventos:</h2>
+    <div id="log"></div>
+    
+    <script>
+        let recognition;
+        let synth = window.speechSynthesis;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logDiv.innerHTML += `${time} ${prefix} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        // Test 1: Probar acceso al micrófono
+        async function testMicrofono() {
+            log('Iniciando test de micrófono...');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✅ Micrófono funcionando correctamente', 'success');
+                updateStatus('Micrófono OK', 'success');
+                
+                // Mostrar nivel de audio
+                const audioContext = new AudioContext();
+                const analyser = audioContext.createAnalyser();
+                const microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                function checkAudioLevel() {
+                    analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    if (average > 10) {
+                        log(`Nivel de audio detectado: ${Math.round(average)}`);
+                    }
+                    if (stream.active) {
+                        setTimeout(checkAudioLevel, 100);
+                    }
+                }
+                
+                checkAudioLevel();
+                
+                // Detener después de 5 segundos
+                setTimeout(() => {
+                    stream.getTracks().forEach(track => track.stop());
+                    audioContext.close();
+                    log('Test de micrófono completado');
+                }, 5000);
+                
+            } catch (error) {
+                log(`Error al acceder al micrófono: ${error.message}`, 'error');
+                updateStatus('Error con el micrófono', 'error');
+            }
+        }
+        
+        // Test 2: Probar síntesis de voz
+        function testSintesis() {
+            log('Iniciando test de síntesis de voz...');
+            
+            if (!synth) {
+                log('Síntesis de voz no disponible', 'error');
+                updateStatus('Síntesis no disponible', 'error');
+                return;
+            }
+            
+            const utterance = new SpeechSynthesisUtterance('Hola, soy tu asistente de voz. Esta es una prueba de síntesis.');
+            utterance.lang = 'es-ES';
+            
+            utterance.onstart = () => {
+                log('Iniciando síntesis de voz');
+                updateStatus('Hablando...', 'info');
+            };
+            
+            utterance.onend = () => {
+                log('Síntesis de voz completada', 'success');
+                updateStatus('Síntesis OK', 'success');
+            };
+            
+            utterance.onerror = (event) => {
+                log(`Error en síntesis: ${event.error}`, 'error');
+                updateStatus('Error en síntesis', 'error');
+            };
+            
+            synth.speak(utterance);
+        }
+        
+        // Test 3: Probar reconocimiento de voz
+        function testReconocimiento() {
+            log('Iniciando test de reconocimiento de voz...');
+            
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                log('Reconocimiento de voz no disponible en este navegador', 'error');
+                updateStatus('Reconocimiento no disponible', 'error');
+                return;
+            }
+            
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            
+            recognition.onstart = () => {
+                log('Reconocimiento iniciado - ¡Habla ahora!');
+                updateStatus('Escuchando... ¡Di algo!', 'warning');
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const confidence = event.results[0][0].confidence;
+                const isFinal = event.results[0].isFinal;
+                
+                log(`${isFinal ? 'Final' : 'Parcial'}: "${transcript}" (confianza: ${Math.round(confidence * 100)}%)`);
+                
+                if (isFinal) {
+                    updateStatus(`Escuché: "${transcript}"`, 'success');
+                    
+                    // Responder según lo que se dijo
+                    let respuesta = '';
+                    if (transcript.toLowerCase().includes('hola')) {
+                        respuesta = 'Hola! Te escucho perfectamente.';
+                    } else if (transcript.toLowerCase().includes('qué ves')) {
+                        respuesta = 'Esta es una prueba, no tengo cámara activa ahora.';
+                    } else {
+                        respuesta = `Escuché que dijiste: ${transcript}`;
+                    }
+                    
+                    const utterance = new SpeechSynthesisUtterance(respuesta);
+                    utterance.lang = 'es-ES';
+                    synth.speak(utterance);
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                log(`Error en reconocimiento: ${event.error}`, 'error');
+                updateStatus(`Error: ${event.error}`, 'error');
+            };
+            
+            recognition.onend = () => {
+                log('Reconocimiento finalizado');
+            };
+            
+            try {
+                recognition.start();
+            } catch (error) {
+                log(`Error al iniciar reconocimiento: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test 4: Test completo
+        async function testCompleto() {
+            log('=== INICIANDO TEST COMPLETO ===');
+            updateStatus('Ejecutando test completo...', 'info');
+            
+            // Verificar compatibilidad del navegador
+            log('Verificando compatibilidad del navegador...');
+            
+            const features = {
+                'getUserMedia': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                'speechSynthesis': !!window.speechSynthesis,
+                'speechRecognition': !!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+            };
+            
+            for (const [feature, available] of Object.entries(features)) {
+                log(`${feature}: ${available ? '✅ Disponible' : '❌ No disponible'}`, available ? 'success' : 'error');
+            }
+            
+            // Si todo está disponible, hacer una prueba integrada
+            if (features.getUserMedia && features.speechSynthesis && features.speechRecognition) {
+                log('\nTodas las características están disponibles. Iniciando prueba integrada...\n');
+                
+                // Pedir permisos
+                try {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    log('✅ Permisos de micrófono concedidos', 'success');
+                    
+                    // Decir algo
+                    const utterance = new SpeechSynthesisUtterance('Di "hola" cuando escuches el pitido.');
+                    utterance.lang = 'es-ES';
+                    
+                    utterance.onend = () => {
+                        // Hacer un sonido de pitido
+                        const audioContext = new AudioContext();
+                        const oscillator = audioContext.createOscillator();
+                        oscillator.connect(audioContext.destination);
+                        oscillator.frequency.value = 800;
+                        oscillator.start();
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                        
+                        // Iniciar reconocimiento
+                        setTimeout(() => {
+                            testReconocimiento();
+                        }, 500);
+                    };
+                    
+                    synth.speak(utterance);
+                    
+                } catch (error) {
+                    log(`Error al obtener permisos: ${error.message}`, 'error');
+                }
+            } else {
+                log('\n⚠️ No todas las características están disponibles', 'error');
+                updateStatus('Sistema incompleto', 'error');
+            }
+        }
+        
+        // Inicializar
+        window.onload = function() {
+            log('Página cargada. Sistema listo para pruebas.');
+            updateStatus('Listo para probar', 'success');
+            
+            // Mostrar información del navegador
+            log(`Navegador: ${navigator.userAgent}`);
+        };
+    </script>
+</body>
+</html> 

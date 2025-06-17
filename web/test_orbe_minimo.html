@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Mínimo del Orbe</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a0e3b;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00BFFF, #8A2BE2);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            text-align: center;
+        }
+        #orb:hover {
+            transform: scale(1.1);
+        }
+        #orb.listening {
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        #status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 5px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">
+        <h3>Estado del Sistema:</h3>
+        <div id="log"></div>
+    </div>
+    
+    <div id="orb">
+        <div>Click aquí</div>
+        <div style="font-size: 12px; margin-top: 10px;">para hablar</div>
+    </div>
+
+    <script>
+        // Sistema de logging
+        function log(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+            entry.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : '#fff';
+            logDiv.appendChild(entry);
+            
+            // Mantener solo los últimos 10 mensajes
+            if (logDiv.children.length > 10) {
+                logDiv.removeChild(logDiv.children[0]);
+            }
+        }
+
+        // Variables globales
+        let recognition = null;
+        let synth = window.speechSynthesis;
+        const orb = document.getElementById('orb');
+
+        // Función para hablar
+        function speak(text) {
+            log(`Hablando: ${text}`, 'success');
+            
+            // Cancelar cualquier síntesis previa
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'es-ES';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            utterance.onstart = () => {
+                log('Iniciando síntesis de voz');
+                orb.classList.add('listening');
+            };
+            
+            utterance.onend = () => {
+                log('Síntesis de voz completada');
+                orb.classList.remove('listening');
+            };
+            
+            utterance.onerror = (event) => {
+                log(`Error en síntesis: ${event.error}`, 'error');
+                orb.classList.remove('listening');
+            };
+            
+            synth.speak(utterance);
+        }
+
+        // Inicializar reconocimiento de voz
+        function initSpeechRecognition() {
+            log('Inicializando reconocimiento de voz...');
+            
+            // Verificar soporte
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                log('Tu navegador no soporta reconocimiento de voz', 'error');
+                speak('Lo siento, tu navegador no soporta reconocimiento de voz');
+                return false;
+            }
+            
+            // Crear instancia
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            
+            // Configurar
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            // Eventos
+            recognition.onstart = () => {
+                log('Reconocimiento iniciado - ¡Habla ahora!', 'success');
+                orb.classList.add('listening');
+                orb.innerHTML = '<div>Escuchando...</div>';
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const confidence = Math.round(event.results[0][0].confidence * 100);
+                log(`Escuché: "${transcript}" (confianza: ${confidence}%)`, 'success');
+                
+                // Procesar comando simple
+                processCommand(transcript.toLowerCase());
+            };
+            
+            recognition.onend = () => {
+                log('Reconocimiento finalizado');
+                orb.classList.remove('listening');
+                orb.innerHTML = '<div>Click aquí</div><div style="font-size: 12px; margin-top: 10px;">para hablar</div>';
+            };
+            
+            recognition.onerror = (event) => {
+                log(`Error: ${event.error}`, 'error');
+                orb.classList.remove('listening');
+                orb.innerHTML = '<div>Click aquí</div><div style="font-size: 12px; margin-top: 10px;">para hablar</div>';
+                
+                if (event.error === 'no-speech') {
+                    speak('No escuché nada, inténtalo de nuevo');
+                } else if (event.error === 'not-allowed') {
+                    speak('Necesito permisos para usar el micrófono');
+                } else {
+                    speak('Ocurrió un error, inténtalo de nuevo');
+                }
+            };
+            
+            log('Reconocimiento de voz configurado correctamente', 'success');
+            return true;
+        }
+
+        // Procesar comandos simples
+        function processCommand(command) {
+            log(`Procesando comando: "${command}"`);
+            
+            if (command.includes('hola')) {
+                speak('Hola, soy tu asistente por voz. ¿En qué puedo ayudarte?');
+            } else if (command.includes('qué ves') || command.includes('que ves')) {
+                speak('Veo una habitación con buena iluminación. Detectaré objetos cuando actives mi cámara.');
+            } else if (command.includes('precio')) {
+                speak('Para leer precios, necesito que enfoques la etiqueta del producto con la cámara.');
+            } else if (command.includes('cómo llegar') || command.includes('como llegar')) {
+                speak('Puedo darte indicaciones para llegar al supermercado, farmacia, banco o parada de autobús.');
+            } else if (command.includes('ayuda')) {
+                speak('Puedo reconocer objetos, leer precios, darte indicaciones y detectar billetes. Pregúntame qué veo o cómo llegar a un lugar.');
+            } else {
+                speak('No entendí tu solicitud. Prueba con: hola, qué ves, o ayuda.');
+            }
+        }
+
+        // Función para iniciar escucha
+        function startListening() {
+            log('Intentando iniciar escucha...');
+            
+            if (!recognition) {
+                if (!initSpeechRecognition()) {
+                    return;
+                }
+            }
+            
+            try {
+                recognition.start();
+                log('Comando start() ejecutado');
+            } catch (err) {
+                log(`Error al iniciar: ${err.message}`, 'error');
+                
+                if (err.name === 'InvalidStateError') {
+                    log('El reconocimiento ya está activo, reiniciando...');
+                    recognition.stop();
+                    setTimeout(() => {
+                        recognition.start();
+                    }, 100);
+                }
+            }
+        }
+
+        // Event listeners
+        orb.addEventListener('click', () => {
+            log('Click detectado en el orbe');
+            startListening();
+        });
+
+        // Inicializar al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Página cargada');
+            
+            // Prueba inicial de síntesis de voz
+            setTimeout(() => {
+                speak('Sistema de voz listo. Haz click en el orbe para hablar.');
+            }, 1000);
+        });
+
+        // Atajo de teclado
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault();
+                log('Barra espaciadora presionada');
+                startListening();
+            }
+        });
+    </script>
+</body>
+</html> 

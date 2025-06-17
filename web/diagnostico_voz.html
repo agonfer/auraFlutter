@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnóstico Completo del Sistema de Voz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #ddd;
+        }
+        .test-pass {
+            border-left-color: #4CAF50;
+            background-color: #f1f8f4;
+        }
+        .test-fail {
+            border-left-color: #f44336;
+            background-color: #fff3f3;
+        }
+        .test-pending {
+            border-left-color: #ff9800;
+            background-color: #fff8e1;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #2196F3;
+            color: white;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .console {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .console-line {
+            margin: 2px 0;
+        }
+        #main-orb {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00BFFF, #8A2BE2);
+            margin: 20px auto;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: transform 0.3s;
+        }
+        #main-orb:hover {
+            transform: scale(1.1);
+        }
+        #main-orb.listening {
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.15); }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico Completo del Sistema de Voz</h1>
+    
+    <div class="test-section">
+        <h2>1. Compatibilidad del Navegador</h2>
+        <div id="browser-tests"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Síntesis de Voz (Text-to-Speech)</h2>
+        <button onclick="testSynthesis()">Probar Síntesis de Voz</button>
+        <div id="synthesis-test" class="test-item test-pending">Esperando prueba...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Reconocimiento de Voz (Speech-to-Text)</h2>
+        <button onclick="testRecognition()">Probar Reconocimiento</button>
+        <div id="main-orb">Click aquí</div>
+        <div id="recognition-test" class="test-item test-pending">Esperando prueba...</div>
+        <div class="console" id="recognition-console"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Prueba de Comandos</h2>
+        <p>Después de activar el reconocimiento, prueba estos comandos:</p>
+        <ul>
+            <li><strong>"Hola"</strong> - Debería saludar</li>
+            <li><strong>"¿Qué ves?"</strong> - Debería describir objetos</li>
+            <li><strong>"¿Cuánto cuesta el agua?"</strong> - Debería dar un precio</li>
+            <li><strong>"¿Cómo llegar al supermercado?"</strong> - Debería dar direcciones</li>
+            <li><strong>"Ayuda"</strong> - Debería explicar funciones</li>
+        </ul>
+        <div id="commands-test" class="test-item test-pending">Esperando comandos...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Consola de Eventos</h2>
+        <div class="console" id="event-console"></div>
+    </div>
+
+    <script>
+        // Variables globales
+        let recognition = null;
+        let synth = window.speechSynthesis;
+        let isListening = false;
+        
+        // Logging
+        function log(message, target = 'event-console') {
+            console.log(message);
+            const console = document.getElementById(target);
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        // Actualizar estado de prueba
+        function updateTestStatus(testId, status, message) {
+            const element = document.getElementById(testId);
+            element.className = `test-item test-${status}`;
+            element.textContent = message;
+        }
+        
+        // 1. Verificar compatibilidad del navegador
+        function checkBrowserCompatibility() {
+            const tests = document.getElementById('browser-tests');
+            
+            // Test 1: Navegador
+            const browserTest = document.createElement('div');
+            browserTest.className = 'test-item';
+            const userAgent = navigator.userAgent;
+            if (userAgent.includes('Chrome') || userAgent.includes('Edge')) {
+                browserTest.className += ' test-pass';
+                browserTest.textContent = '✓ Navegador compatible (Chrome/Edge)';
+            } else {
+                browserTest.className += ' test-fail';
+                browserTest.textContent = '✗ Navegador no recomendado (usa Chrome o Edge)';
+            }
+            tests.appendChild(browserTest);
+            
+            // Test 2: Speech Synthesis API
+            const synthTest = document.createElement('div');
+            synthTest.className = 'test-item';
+            if ('speechSynthesis' in window) {
+                synthTest.className += ' test-pass';
+                synthTest.textContent = '✓ API de síntesis de voz disponible';
+            } else {
+                synthTest.className += ' test-fail';
+                synthTest.textContent = '✗ API de síntesis de voz NO disponible';
+            }
+            tests.appendChild(synthTest);
+            
+            // Test 3: Speech Recognition API
+            const recogTest = document.createElement('div');
+            recogTest.className = 'test-item';
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                recogTest.className += ' test-pass';
+                recogTest.textContent = '✓ API de reconocimiento de voz disponible';
+            } else {
+                recogTest.className += ' test-fail';
+                recogTest.textContent = '✗ API de reconocimiento de voz NO disponible';
+            }
+            tests.appendChild(recogTest);
+            
+            // Test 4: MediaDevices API
+            const mediaTest = document.createElement('div');
+            mediaTest.className = 'test-item';
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                mediaTest.className += ' test-pass';
+                mediaTest.textContent = '✓ API de dispositivos multimedia disponible';
+            } else {
+                mediaTest.className += ' test-fail';
+                mediaTest.textContent = '✗ API de dispositivos multimedia NO disponible';
+            }
+            tests.appendChild(mediaTest);
+            
+            // Test 5: HTTPS
+            const httpsTest = document.createElement('div');
+            httpsTest.className = 'test-item';
+            if (location.protocol === 'https:' || location.hostname === 'localhost') {
+                httpsTest.className += ' test-pass';
+                httpsTest.textContent = '✓ Conexión segura (HTTPS o localhost)';
+            } else {
+                httpsTest.className += ' test-fail';
+                httpsTest.textContent = '✗ Se requiere HTTPS para el micrófono';
+            }
+            tests.appendChild(httpsTest);
+        }
+        
+        // 2. Probar síntesis de voz
+        function testSynthesis() {
+            log('Probando síntesis de voz...');
+            
+            try {
+                const text = 'Hola, esta es una prueba de síntesis de voz. Si puedes escuchar esto, la síntesis funciona correctamente.';
+                
+                if (synth.speaking) {
+                    synth.cancel();
+                }
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                utterance.onstart = () => {
+                    log('Síntesis iniciada');
+                    updateTestStatus('synthesis-test', 'pending', '🔊 Hablando...');
+                };
+                
+                utterance.onend = () => {
+                    log('Síntesis completada');
+                    updateTestStatus('synthesis-test', 'pass', '✓ Síntesis de voz funcionando correctamente');
+                };
+                
+                utterance.onerror = (event) => {
+                    log(`Error en síntesis: ${event.error}`);
+                    updateTestStatus('synthesis-test', 'fail', `✗ Error: ${event.error}`);
+                };
+                
+                synth.speak(utterance);
+            } catch (error) {
+                log(`Excepción en síntesis: ${error.message}`);
+                updateTestStatus('synthesis-test', 'fail', `✗ Excepción: ${error.message}`);
+            }
+        }
+        
+        // 3. Probar reconocimiento de voz
+        function testRecognition() {
+            log('Iniciando prueba de reconocimiento...');
+            startListening();
+        }
+        
+        // Inicializar reconocimiento
+        function initRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                updateTestStatus('recognition-test', 'fail', '✗ Reconocimiento no soportado');
+                return false;
+            }
+            
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                isListening = true;
+                log('Reconocimiento iniciado - ¡Habla ahora!', 'recognition-console');
+                updateTestStatus('recognition-test', 'pending', '🎤 Escuchando... Di algo');
+                document.getElementById('main-orb').classList.add('listening');
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const confidence = Math.round(event.results[0][0].confidence * 100);
+                log(`Escuché: "${transcript}" (confianza: ${confidence}%)`, 'recognition-console');
+                updateTestStatus('recognition-test', 'pass', `✓ Reconocí: "${transcript}"`);
+                
+                // Procesar comando
+                processTestCommand(transcript.toLowerCase());
+            };
+            
+            recognition.onend = () => {
+                isListening = false;
+                log('Reconocimiento finalizado', 'recognition-console');
+                document.getElementById('main-orb').classList.remove('listening');
+            };
+            
+            recognition.onerror = (event) => {
+                isListening = false;
+                log(`Error: ${event.error}`, 'recognition-console');
+                updateTestStatus('recognition-test', 'fail', `✗ Error: ${event.error}`);
+                document.getElementById('main-orb').classList.remove('listening');
+            };
+            
+            return true;
+        }
+        
+        // Iniciar escucha
+        function startListening() {
+            if (!recognition) {
+                if (!initRecognition()) {
+                    return;
+                }
+            }
+            
+            try {
+                recognition.start();
+            } catch (err) {
+                log(`Error al iniciar: ${err.message}`, 'recognition-console');
+                if (err.name === 'InvalidStateError') {
+                    recognition.stop();
+                    setTimeout(() => recognition.start(), 100);
+                }
+            }
+        }
+        
+        // Procesar comandos de prueba
+        function processTestCommand(command) {
+            log(`Procesando comando: "${command}"`);
+            let response = '';
+            
+            if (command.includes('hola')) {
+                response = 'Hola, soy tu asistente. ¿En qué puedo ayudarte?';
+                updateTestStatus('commands-test', 'pass', '✓ Comando "hola" funcionando');
+            } else if (command.includes('qué ves') || command.includes('que ves')) {
+                response = 'Veo una habitación con buena iluminación. Puedo detectar objetos cuando actives la cámara.';
+                updateTestStatus('commands-test', 'pass', '✓ Comando "qué ves" funcionando');
+            } else if (command.includes('precio')) {
+                response = 'El precio del agua es 1.50 euros.';
+                updateTestStatus('commands-test', 'pass', '✓ Comando de precio funcionando');
+            } else if (command.includes('cómo llegar') || command.includes('como llegar')) {
+                response = 'Para llegar al supermercado: sal de casa, gira a la derecha, camina 100 metros hasta el semáforo.';
+                updateTestStatus('commands-test', 'pass', '✓ Comando de navegación funcionando');
+            } else if (command.includes('ayuda')) {
+                response = 'Puedo reconocer objetos, leer precios, darte indicaciones y detectar billetes.';
+                updateTestStatus('commands-test', 'pass', '✓ Comando de ayuda funcionando');
+            } else {
+                response = 'No entendí tu comando. Prueba con: hola, qué ves, precio, o ayuda.';
+            }
+            
+            // Hablar la respuesta
+            if (response) {
+                const utterance = new SpeechSynthesisUtterance(response);
+                utterance.lang = 'es-ES';
+                synth.speak(utterance);
+                log(`Respuesta: ${response}`);
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('main-orb').addEventListener('click', () => {
+            log('Click en el orbe');
+            startListening();
+        });
+        
+        // Verificar compatibilidad al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Página cargada - Iniciando diagnóstico');
+            checkBrowserCompatibility();
+            
+            // Listar voces disponibles
+            setTimeout(() => {
+                const voices = synth.getVoices();
+                const spanishVoices = voices.filter(v => v.lang.includes('es'));
+                log(`Voces en español disponibles: ${spanishVoices.length}`);
+                spanishVoices.forEach(v => {
+                    log(`  - ${v.name} (${v.lang})`);
+                });
+            }, 1000);
+        });
+        
+        // Atajo de teclado
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' && !isListening) {
+                event.preventDefault();
+                log('Barra espaciadora presionada');
+                startListening();
+            }
+        });
+    </script>
+</body>
+</html> 

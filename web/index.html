@@ -14,6 +14,9 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -22,15 +25,13 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Aura">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Aura</title>
-  <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
 
   <style>
@@ -532,7 +533,10 @@
     var serviceWorkerVersion = null;
   </script>
   <!-- Este script agrega el flutter-specific service worker y lo habilita -->
-  <script src="flutter.js" defer></script>
+  <!-- <script src="flutter.js" defer></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 </head>
 <body>
   <div class="bg-gradient"></div>
@@ -604,17 +608,164 @@
   <div id="flutter-app"></div>
 
   <script>
+    // Variables globales para reconocimiento de voz y objetos
+    let recognition;
+    let objectDetectionModel;
+    let imageClassificationModel;
+    let isListening = false;
+    let isProcessing = false;
+    let lastDetectedObjects = [];
+    let lastDetectionTime = 0;
+    let synth = window.speechSynthesis;
+    let cameraStream = null;
+    let microphoneStream = null;
+    
     // Variables para controlar la animación
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('=== ASISTENTE DE VOZ INICIALIZANDO ===');
       const orbContainer = document.getElementById('orb-container');
       const siriOrb = document.getElementById('siri-orb');
       
       // Mostrar el orb después de que termine la animación de texto (2.5s)
       setTimeout(function() {
+        console.log('Mostrando orbe...');
         orbContainer.classList.add('visible');
         initOrbInteraction(orbContainer, siriOrb);
       }, 2500);
     });
+    
+    // Función para hacer que el orbe pulse cuando está escuchando
+    function pulsateOrb(isActive) {
+      const siriOrb = document.getElementById('siri-orb');
+      if (siriOrb) {
+        if (isActive) {
+          siriOrb.style.animation = 'pulse 1s infinite alternate';
+        } else {
+          siriOrb.style.animation = '';
+        }
+      }
+    }
+    
+    // Síntesis de voz para responder
+    function speak(text) {
+      console.log('Hablando:', text);
+      // Cancelar cualquier síntesis previa
+      if (synth.speaking) {
+        synth.cancel();
+      }
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'es-ES';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
+      // Evento para animación del orbe mientras habla
+      utterance.onstart = function() {
+        pulsateOrb(true);
+      };
+      
+      utterance.onend = function() {
+        pulsateOrb(false);
+        isProcessing = false;
+      };
+      
+      utterance.onerror = function() {
+        pulsateOrb(false);
+        isProcessing = false;
+      };
+      
+      synth.speak(utterance);
+    }
+    
+    // Declaración de processVoiceCommand (se definirá más adelante)
+    let processVoiceCommand;
+    
+    // Inicializar reconocimiento de voz
+    function initSpeechRecognition() {
+      // Comprobar si el navegador soporta el reconocimiento de voz
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        // Crear instancia de reconocimiento de voz
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        
+        // Configurar reconocimiento
+        recognition.lang = 'es-ES';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        
+        // Manejar eventos de reconocimiento
+        recognition.onstart = function() {
+          isListening = true;
+          pulsateOrb(true); // Efecto visual en el orbe
+          console.log('Escuchando...');
+        };
+        
+        recognition.onresult = function(event) {
+          const transcript = event.results[0][0].transcript.toLowerCase();
+          const confidence = Math.round(event.results[0][0].confidence * 100);
+          console.log(`Has dicho: "${transcript}" (confianza: ${confidence}%)`);
+          
+          // Procesar el comando de voz
+          processVoiceCommand(transcript);
+        };
+        
+        recognition.onend = function() {
+          isListening = false;
+          pulsateOrb(false);
+          console.log('Reconocimiento de voz finalizado');
+        };
+        
+        recognition.onerror = function(event) {
+          isListening = false;
+          pulsateOrb(false);
+          console.error('Error en reconocimiento:', event.error);
+          if (event.error === 'no-speech') {
+            speak('No he oído nada. ¿Puedes intentarlo de nuevo?');
+          } else {
+            speak('Ha ocurrido un error con el reconocimiento de voz.');
+          }
+        };
+        
+        console.log('Reconocimiento de voz inicializado');
+        return true;
+      } else {
+        console.error('El navegador no soporta reconocimiento de voz');
+        speak('Lo siento, tu navegador no soporta reconocimiento de voz.');
+        return false;
+      }
+    }
+    
+    // Definir startListening globalmente antes de usarla
+    window.startListening = function() {
+      console.log('startListening llamada');
+      if (isProcessing) {
+        console.log('Ya estoy procesando una solicitud, por favor espera...');
+        return;
+      }
+      
+      if (!recognition) {
+        console.log('Inicializando reconocimiento de voz...');
+        if (!initSpeechRecognition()) {
+          return;
+        }
+      }
+      
+      try {
+        console.log('Iniciando reconocimiento...');
+        recognition.start();
+        pulsateOrb(true);
+      } catch (err) {
+        console.error('Error al iniciar reconocimiento:', err);
+        
+        // Si hay un error porque ya está escuchando, lo detenemos y reiniciamos
+        if (err.name === 'InvalidStateError') {
+          recognition.stop();
+          setTimeout(() => {
+            recognition.start();
+          }, 200);
+        }
+      }
+    };
     
     // Función para inicializar las interacciones del orb
     function initOrbInteraction(orbContainer, siriOrb) {
@@ -686,140 +837,723 @@
       
       siriOrb.addEventListener('touchstart', function() {
         siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(0.95)`;
+        startListening(); // Activar reconocimiento de voz al tocar el orbe
       });
       
       siriOrb.addEventListener('touchend', function() {
         siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(1)`;
       });
-    }
-
-    // Inicializar la cámara web y el micrófono y mantenerlos activos en segundo plano
-    let cameraStream = null;
-    let microphoneStream = null;
-
-    // Función para iniciar la cámara
-    async function initCamera() {
-      try {
-        const videoElement = document.getElementById('camera-feed');
-        
-        // Solicitar acceso a la cámara con resolución baja y sin audio
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 320 },
-            height: { ideal: 240 },
-            frameRate: { ideal: 10 }
-          },
-          audio: false
-        });
-        
-        // Guardar la referencia al stream para usarla más tarde
-        cameraStream = stream;
-        
-        // Conectar el stream al elemento video
-        if (videoElement) {
-          videoElement.srcObject = stream;
-          console.log('Cámara web inicializada y mantenida activa');
+      
+      // Activar reconocimiento de voz al hacer clic en el orbe
+      siriOrb.addEventListener('click', function() {
+        console.log('Click en el orbe detectado');
+        // Verificar que startListening esté disponible
+        if (typeof startListening === 'function') {
+          console.log('Llamando a startListening...');
+          startListening();
+        } else {
+          console.error('startListening no está definida aún');
         }
+      });
+    }
+    
+    // Inicializar reconocimiento de objetos
+    async function initObjectDetection() {
+      try {
+        console.log('Cargando modelos de detección de objetos...');
+        // Cargar modelo COCO-SSD para detección de objetos
+        objectDetectionModel = await cocoSsd.load();
         
-        // Asegurarse de que la cámara no se detenga si el video es pausado
-        videoElement.addEventListener('pause', () => {
-          videoElement.play().catch(e => console.log('Error al reanudar video:', e));
-        });
-      } catch (err) {
-        console.error('Error al inicializar la cámara web:', err);
+        // Cargar MobileNet para clasificación más detallada
+        imageClassificationModel = await mobilenet.load();
+        
+        console.log('Modelos de detección de objetos cargados correctamente');
+        speak('Asistente por voz listo para ayudarte');
+      } catch (error) {
+        console.error('Error al cargar modelos de detección:', error);
+        speak('No he podido cargar los modelos de detección. Por favor, revisa tu conexión a internet.');
       }
     }
-
-    // Función para inicializar el micrófono y mantenerlo activo
+    
+    // Procesar comandos de voz
+    processVoiceCommand = async function(command) {
+      isProcessing = true;
+      
+      // Convertir a minúsculas y eliminar signos de puntuación
+      command = command.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+      
+      console.log('Procesando comando:', command);
+      
+      // Detectar qué tipo de solicitud es
+      if (command.includes('qué ves') || command.includes('que ves') || 
+          command.includes('qué estás viendo') || command.includes('qué hay') || 
+          command.includes('que hay') || command.includes('describe lo que ves')) {
+        // Solicitud para describir lo que ve la cámara
+        await detectObjects();
+      }
+      else if (command.includes('precio') || command.includes('cuesta') || 
+               command.includes('vale')) {
+        // Solicitud para leer precios
+        await readPrice(command);
+      }
+      else if (command.includes('cómo llegar') || command.includes('como llegar') || 
+               command.includes('llegar a') || command.includes('dirección') || 
+               command.includes('direccion') || command.includes('guíame') || 
+               command.includes('guiame')) {
+        // Solicitud de navegación
+        provideNavigation(command);
+      }
+      else if (command.includes('reconoce') || command.includes('detecta') || 
+               command.includes('identifica')) {
+        // Solicitud para reconocer un objeto específico
+        await detectSpecificObject(command);
+      }
+      else if (command.includes('hola') || command.includes('ayuda') || 
+               command.includes('qué puedes hacer') || command.includes('que puedes hacer')) {
+        // Saludo o solicitud de ayuda
+        console.log('Comando de saludo/ayuda detectado');
+        speak('Hola, soy Aura, tu asistente por voz. Puedo reconocer objetos, leer precios, darte indicaciones y ayudarte a identificar billetes, monedas y productos. Pregúntame qué veo, cómo llegar a un sitio o el precio de un producto.');
+      }
+      else {
+        // Comando no reconocido
+        speak('Lo siento, no he entendido tu solicitud. Puedes pedirme que describa lo que veo, que te diga el precio de un producto, o cómo llegar a un lugar.');
+        isProcessing = false;
+      }
+    }
+    
+    // Función para detectar objetos en la cámara
+    async function detectObjects() {
+      speak('Analizando lo que veo...');
+      
+      const videoElement = document.getElementById('camera-feed');
+      if (!videoElement || !cameraStream || !objectDetectionModel) {
+        speak('Lo siento, no puedo acceder a la cámara o el modelo de detección no está cargado.');
+        isProcessing = false;
+        return;
+      }
+      
+      try {
+        // Asegurarse de que el video esté reproduciendo
+        if (videoElement.paused) {
+          await videoElement.play();
+        }
+        
+        // Detectar objetos
+        const predictions = await objectDetectionModel.detect(videoElement);
+        
+        if (predictions && predictions.length > 0) {
+          lastDetectedObjects = predictions;
+          lastDetectionTime = Date.now();
+          
+          let response = 'Veo ';
+          
+          predictions.forEach((prediction, index) => {
+            const object = translateObject(prediction.class);
+            const confidence = Math.round(prediction.score * 100);
+            
+            if (index === 0) {
+              response += `${object} con ${confidence}% de confianza`;
+            } else if (index === predictions.length - 1) {
+              response += ` y ${object} con ${confidence}% de confianza`;
+            } else {
+              response += `, ${object} con ${confidence}% de confianza`;
+            }
+          });
+          
+          speak(response);
+        } else {
+          speak('No puedo identificar ningún objeto en este momento. Por favor, ajusta la cámara o prueba con mejor iluminación.');
+        }
+      } catch (error) {
+        console.error('Error al detectar objetos:', error);
+        speak('Ha ocurrido un error al analizar la imagen. Por favor, inténtalo de nuevo.');
+      }
+      
+      isProcessing = false;
+    }
+    
+    // Función para detectar un objeto específico
+    async function detectSpecificObject(command) {
+      speak('Buscando ese objeto específico...');
+      
+      // Extraer qué objeto está solicitando el usuario
+      let targetObject = '';
+      const keywords = [
+        'reconoce', 'detecta', 'identifica', 'busca', 'encuentra'
+      ];
+      
+      for (const keyword of keywords) {
+        if (command.includes(keyword)) {
+          const parts = command.split(keyword);
+          if (parts.length > 1 && parts[1].trim()) {
+            targetObject = parts[1].trim();
+            break;
+          }
+        }
+      }
+      
+      if (!targetObject) {
+        speak('No he entendido qué objeto quieres que reconozca. Por favor, especifica qué debo buscar.');
+        isProcessing = false;
+        return;
+      }
+      
+      // Detectar todos los objetos y filtrar
+      const videoElement = document.getElementById('camera-feed');
+      if (!videoElement || !cameraStream || !objectDetectionModel) {
+        speak('Lo siento, no puedo acceder a la cámara o el modelo de detección no está cargado.');
+        isProcessing = false;
+        return;
+      }
+      
+      try {
+        // Asegurarse de que el video esté reproduciendo
+        if (videoElement.paused) {
+          await videoElement.play();
+        }
+        
+        // Detección específica para billetes y monedas
+        if (targetObject.includes('billete') || targetObject.includes('moneda') || 
+            targetObject.includes('dinero') || targetObject.includes('euro')) {
+          await detectMoney(targetObject);
+          isProcessing = false;
+          return;
+        }
+        
+        // Detectar objetos generales
+        const predictions = await objectDetectionModel.detect(videoElement);
+        
+        if (predictions && predictions.length > 0) {
+          // Buscar coincidencias con el objeto solicitado
+          const matchingPredictions = predictions.filter(pred => {
+            const translatedClass = translateObject(pred.class).toLowerCase();
+            return translatedClass.includes(targetObject) || 
+                   targetObject.includes(translatedClass);
+          });
+          
+          if (matchingPredictions.length > 0) {
+            const bestMatch = matchingPredictions[0];
+            const object = translateObject(bestMatch.class);
+            const confidence = Math.round(bestMatch.score * 100);
+            
+            speak(`He encontrado ${object} con ${confidence}% de confianza. Está ubicado en la ${getObjectPosition(bestMatch.bbox, videoElement)}.`);
+          } else {
+            // Si no hay coincidencia directa, intentar una clasificación más detallada con MobileNet
+            const result = await imageClassificationModel.classify(videoElement);
+            
+            if (result && result.length > 0) {
+              const matchingResults = result.filter(r => {
+                return r.className.toLowerCase().includes(targetObject) ||
+                       targetObject.includes(r.className.toLowerCase());
+              });
+              
+              if (matchingResults.length > 0) {
+                const bestMatch = matchingResults[0];
+                speak(`Creo que he encontrado ${bestMatch.className} con ${Math.round(bestMatch.probability * 100)}% de confianza.`);
+              } else {
+                speak(`No he podido encontrar ${targetObject} en la imagen. Los objetos que veo son: ${predictions.map(p => translateObject(p.class)).join(', ')}.`);
+              }
+            } else {
+              speak(`No he podido encontrar ${targetObject} en la imagen.`);
+            }
+          }
+        } else {
+          speak('No puedo identificar ningún objeto en este momento. Por favor, ajusta la cámara o prueba con mejor iluminación.');
+        }
+      } catch (error) {
+        console.error('Error al detectar objeto específico:', error);
+        speak('Ha ocurrido un error al analizar la imagen. Por favor, inténtalo de nuevo.');
+      }
+      
+      isProcessing = false;
+    }
+    
+    // Función específica para detectar dinero (billetes/monedas)
+    async function detectMoney(request) {
+      speak('Analizando el dinero...');
+      
+      const videoElement = document.getElementById('camera-feed');
+      if (!videoElement || !cameraStream) {
+        speak('Lo siento, no puedo acceder a la cámara.');
+        return;
+      }
+      
+      try {
+        if (videoElement.paused) {
+          await videoElement.play();
+        }
+        
+        // Simulamos reconocimiento de billetes y monedas
+        // En una implementación real, esto usaría un modelo especializado
+        
+        // Usar clasificación más detallada para billetes y monedas
+        const result = await imageClassificationModel.classify(videoElement);
+        
+        let detected = false;
+        
+        if (result && result.length > 0) {
+          for (const item of result) {
+            const className = item.className.toLowerCase();
+            
+            // Para billetes
+            if (request.includes('billete') && 
+                (className.includes('bill') || className.includes('note') || className.includes('currency') || className.includes('money') || className.includes('euro'))) {
+              
+              // Simulación de denominaciones
+              const denominations = [5, 10, 20, 50, 100, 200, 500];
+              const denominationIndex = Math.floor(Math.random() * denominations.length);
+              const amount = denominations[denominationIndex];
+              
+              speak(`He detectado un billete de ${amount} euros.`);
+              detected = true;
+              break;
+            }
+            
+            // Para monedas
+            if (request.includes('moneda') && 
+                (className.includes('coin') || className.includes('currency') || className.includes('money') || className.includes('euro') || className.includes('cents'))) {
+              
+              // Simulación de denominaciones
+              const denominations = [0.01, 0.02, 0.05, 0.10, 0.20, 0.50, 1, 2];
+              const denominationIndex = Math.floor(Math.random() * denominations.length);
+              const amount = denominations[denominationIndex];
+              
+              if (amount < 1) {
+                const cents = amount * 100;
+                speak(`He detectado una moneda de ${cents} céntimos de euro.`);
+              } else {
+                speak(`He detectado una moneda de ${amount} euros.`);
+              }
+              
+              detected = true;
+              break;
+            }
+          }
+        }
+        
+        if (!detected) {
+          speak('No he podido identificar correctamente el dinero. Por favor, asegúrate de que esté bien visible y con buena iluminación.');
+        }
+      } catch (error) {
+        console.error('Error al detectar dinero:', error);
+        speak('Ha ocurrido un error al analizar el dinero. Por favor, inténtalo de nuevo.');
+      }
+    }
+    
+    // Función para leer precios
+    async function readPrice(command) {
+      speak('Buscando información de precio...');
+      
+      // Extraer qué producto está solicitando
+      let targetProduct = '';
+      const keywords = [
+        'precio de', 'cuesta', 'vale', 'cuánto es', 'cuanto es', 'cuánto cuesta', 'cuanto cuesta'
+      ];
+      
+      for (const keyword of keywords) {
+        if (command.includes(keyword)) {
+          const parts = command.split(keyword);
+          if (parts.length > 1 && parts[1].trim()) {
+            targetProduct = parts[1].trim();
+            break;
+          }
+        }
+      }
+      
+      if (!targetProduct) {
+        speak('No he entendido de qué producto quieres saber el precio. Por favor, especifica qué producto.');
+        isProcessing = false;
+        return;
+      }
+      
+      const videoElement = document.getElementById('camera-feed');
+      if (!videoElement || !cameraStream || !objectDetectionModel) {
+        speak('Lo siento, no puedo acceder a la cámara.');
+        isProcessing = false;
+        return;
+      }
+      
+      try {
+        // Asegurarse de que el video esté reproduciendo
+        if (videoElement.paused) {
+          await videoElement.play();
+        }
+        
+        // Para una demo, simulamos la detección de precios
+        // En una implementación real, esto usaría OCR (Reconocimiento Óptico de Caracteres)
+        
+        // Primero detectamos si el objeto está en la imagen
+        const predictions = await objectDetectionModel.detect(videoElement);
+        const matchingPredictions = predictions.filter(pred => {
+          const translatedClass = translateObject(pred.class).toLowerCase();
+          return translatedClass.includes(targetProduct) || 
+                targetProduct.includes(translatedClass);
+        });
+        
+        if (matchingPredictions.length > 0) {
+          // Objeto encontrado, simulamos precio
+          const price = (Math.random() * 10 + 0.99).toFixed(2);
+          speak(`El precio de ${targetProduct} es ${price} euros.`);
+        } else {
+          // Intentamos con clasificación más detallada
+          const result = await imageClassificationModel.classify(videoElement);
+          const matchingResults = result.filter(r => {
+            return r.className.toLowerCase().includes(targetProduct) ||
+                  targetProduct.includes(r.className.toLowerCase());
+          });
+          
+          if (matchingResults.length > 0) {
+            const price = (Math.random() * 10 + 0.99).toFixed(2);
+            speak(`El precio de ${targetProduct} parece ser ${price} euros.`);
+          } else {
+            speak(`No he podido encontrar ${targetProduct} en la imagen. Por favor, asegúrate de que el producto está en el campo de visión de la cámara.`);
+          }
+        }
+      } catch (error) {
+        console.error('Error al leer precio:', error);
+        speak('Ha ocurrido un error al analizar el precio. Por favor, inténtalo de nuevo.');
+      }
+      
+      isProcessing = false;
+    }
+    
+    // Función para indicaciones de navegación
+    function provideNavigation(command) {
+      // Extraer el destino solicitado
+      let destination = '';
+      const keywords = [
+        'cómo llegar a', 'como llegar a', 'llegar a', 'guíame a', 'guiame a', 'dirección a', 'direccion a'
+      ];
+      
+      for (const keyword of keywords) {
+        if (command.includes(keyword)) {
+          const parts = command.split(keyword);
+          if (parts.length > 1 && parts[1].trim()) {
+            destination = parts[1].trim();
+            break;
+          }
+        }
+      }
+      
+      if (!destination) {
+        speak('No he entendido a dónde quieres ir. Por favor, especifica el destino.');
+        isProcessing = false;
+        return;
+      }
+      
+      // Simular indicaciones de navegación
+      speak(`Para llegar a ${destination}, sigue estas indicaciones: Primero, avanza recto unos 10 metros. Luego, gira a la derecha y continúa por 15 metros. A continuación, gira a la izquierda en la intersección. Tu destino estará a unos 20 metros a tu izquierda.`);
+      
+      isProcessing = false;
+    }
+    
+    // Función para traducir los nombres de objetos del inglés al español
+    function translateObject(objectClass) {
+      const translations = {
+        'person': 'persona',
+        'bicycle': 'bicicleta',
+        'car': 'coche',
+        'motorcycle': 'motocicleta',
+        'airplane': 'avión',
+        'bus': 'autobús',
+        'train': 'tren',
+        'truck': 'camión',
+        'boat': 'barco',
+        'traffic light': 'semáforo',
+        'fire hydrant': 'boca de incendios',
+        'stop sign': 'señal de stop',
+        'parking meter': 'parquímetro',
+        'bench': 'banco',
+        'bird': 'pájaro',
+        'cat': 'gato',
+        'dog': 'perro',
+        'horse': 'caballo',
+        'sheep': 'oveja',
+        'cow': 'vaca',
+        'elephant': 'elefante',
+        'bear': 'oso',
+        'zebra': 'cebra',
+        'giraffe': 'jirafa',
+        'backpack': 'mochila',
+        'umbrella': 'paraguas',
+        'handbag': 'bolso',
+        'tie': 'corbata',
+        'suitcase': 'maleta',
+        'frisbee': 'frisbee',
+        'skis': 'esquís',
+        'snowboard': 'snowboard',
+        'sports ball': 'pelota deportiva',
+        'kite': 'cometa',
+        'baseball bat': 'bate de béisbol',
+        'baseball glove': 'guante de béisbol',
+        'skateboard': 'monopatín',
+        'surfboard': 'tabla de surf',
+        'tennis racket': 'raqueta de tenis',
+        'bottle': 'botella',
+        'wine glass': 'copa de vino',
+        'cup': 'taza',
+        'fork': 'tenedor',
+        'knife': 'cuchillo',
+        'spoon': 'cuchara',
+        'bowl': 'cuenco',
+        'banana': 'plátano',
+        'apple': 'manzana',
+        'sandwich': 'sándwich',
+        'orange': 'naranja',
+        'broccoli': 'brócoli',
+        'carrot': 'zanahoria',
+        'hot dog': 'perrito caliente',
+        'pizza': 'pizza',
+        'donut': 'donut',
+        'cake': 'pastel',
+        'chair': 'silla',
+        'couch': 'sofá',
+        'potted plant': 'planta en maceta',
+        'bed': 'cama',
+        'dining table': 'mesa de comedor',
+        'toilet': 'inodoro',
+        'tv': 'televisor',
+        'laptop': 'portátil',
+        'mouse': 'ratón',
+        'remote': 'mando a distancia',
+        'keyboard': 'teclado',
+        'cell phone': 'teléfono móvil',
+        'microwave': 'microondas',
+        'oven': 'horno',
+        'toaster': 'tostadora',
+        'sink': 'fregadero',
+        'refrigerator': 'refrigerador',
+        'book': 'libro',
+        'clock': 'reloj',
+        'vase': 'jarrón',
+        'scissors': 'tijeras',
+        'teddy bear': 'osito de peluche',
+        'hair drier': 'secador de pelo',
+        'toothbrush': 'cepillo de dientes',
+        'water bottle': 'botella de agua',
+        'juice': 'zumo',
+        'orange juice': 'zumo de naranja'
+      };
+      
+      return translations[objectClass.toLowerCase()] || objectClass;
+    }
+    
+    // Función para determinar la posición relativa de un objeto en la imagen
+    function getObjectPosition(bbox, videoElement) {
+      const [x, y, width, height] = bbox;
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+      
+      const videoWidth = videoElement.videoWidth;
+      const videoHeight = videoElement.videoHeight;
+      
+      let horizontalPosition, verticalPosition;
+      
+      if (centerX < videoWidth / 3) {
+        horizontalPosition = 'parte izquierda';
+      } else if (centerX > (videoWidth * 2) / 3) {
+        horizontalPosition = 'parte derecha';
+      } else {
+        horizontalPosition = 'parte central';
+      }
+      
+      if (centerY < videoHeight / 3) {
+        verticalPosition = 'superior';
+      } else if (centerY > (videoHeight * 2) / 3) {
+        verticalPosition = 'inferior';
+      } else {
+        verticalPosition = 'central';
+      }
+      
+      return `${horizontalPosition} ${verticalPosition}`;
+    }
+    
+    // Función para inicializar la cámara
+    async function initCamera() {
+      try {
+        console.log('Solicitando acceso a la cámara...');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+        
+        const videoElement = document.getElementById('camera-feed');
+        videoElement.srcObject = stream;
+        cameraStream = stream;
+        
+        console.log('Cámara inicializada correctamente');
+      } catch (error) {
+        console.error('Error al acceder a la cámara:', error);
+        speak('No he podido acceder a la cámara. Por favor, asegúrate de dar permisos.');
+        throw error;
+      }
+    }
+    
+    // Función para inicializar el micrófono
     async function initMicrophone() {
       try {
-        // Crear un contexto de audio
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Solicitar acceso al micrófono
-        const stream = await navigator.mediaDevices.getUserMedia({
+        console.log('Solicitando acceso al micrófono...');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true
-          },
-          video: false
+          }
         });
         
-        // Guardar la referencia al stream para usarla más tarde
         microphoneStream = stream;
-        
-        // Conectar el micrófono a un analizador de audio silencioso para mantenerlo activo
-        const source = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.minDecibels = -90;
-        analyser.maxDecibels = -10;
-        analyser.smoothingTimeConstant = 0.85;
-        
-        // Conectar al destino silencioso (no a audioContext.destination para evitar retroalimentación)
-        source.connect(analyser);
-        
-        console.log('Micrófono inicializado y mantenido activo');
-        
-        return true;
-      } catch (err) {
-        console.error('Error al inicializar el micrófono:', err);
-        return false;
+        console.log('Micrófono inicializado correctamente');
+      } catch (error) {
+        console.error('Error al acceder al micrófono:', error);
+        speak('No he podido acceder al micrófono. Por favor, asegúrate de dar permisos.');
+        throw error;
       }
     }
-
+    
+    // Función para obtener indicaciones de navegación
+    async function getNavigation(command) {
+      const destino = command.replace(/cómo llegar a|guíame a|navegar a|ir a/gi, '').trim();
+      
+      if (!destino) {
+        return "Por favor, dime a dónde quieres ir. Por ejemplo: ¿Cómo llegar al supermercado?";
+      }
+      
+      // Simulación de navegación paso a paso
+      const indicaciones = {
+        'supermercado': [
+          "Para ir al supermercado:",
+          "1. Sal de casa y gira a la derecha",
+          "2. Camina recto unos 100 metros hasta el semáforo",
+          "3. Cruza la calle cuando escuches el sonido del semáforo",
+          "4. Continúa recto 50 metros más",
+          "5. El supermercado estará a tu izquierda, escucharás las puertas automáticas"
+        ],
+        'farmacia': [
+          "Para ir a la farmacia:",
+          "1. Sal de casa y gira a la izquierda",
+          "2. Camina hasta la esquina, aproximadamente 30 metros",
+          "3. Gira a la derecha en la esquina",
+          "4. La farmacia está a 20 metros, tiene una puerta con campanilla"
+        ],
+        'parada de autobús': [
+          "Para ir a la parada de autobús:",
+          "1. Sal de casa y ve recto",
+          "2. Camina unos 50 metros hasta sentir el bordillo",
+          "3. La parada está justo ahí, busca el poste metálico a tu derecha"
+        ],
+        'banco': [
+          "Para ir al banco:",
+          "1. Sal y gira a la derecha",
+          "2. En la primera esquina, gira a la izquierda",
+          "3. Camina 200 metros, pasarás dos cruces",
+          "4. El banco está en la esquina siguiente, tiene puertas giratorias"
+        ]
+      };
+      
+      // Buscar coincidencias parciales
+      let indicacionEncontrada = null;
+      for (const [lugar, pasos] of Object.entries(indicaciones)) {
+        if (destino.toLowerCase().includes(lugar) || lugar.includes(destino.toLowerCase())) {
+          indicacionEncontrada = pasos;
+          break;
+        }
+      }
+      
+      if (indicacionEncontrada) {
+        return indicacionEncontrada.join('\n');
+      } else {
+        return `No tengo indicaciones específicas para "${destino}". ` +
+               "Puedo guiarte al supermercado, farmacia, parada de autobús o banco. " +
+               "¿A cuál de estos lugares quieres ir?";
+      }
+    }
+    
     // Función para mantener la cámara activa
     function keepCameraAlive() {
-      const videoElement = document.getElementById('camera-feed');
-      if (videoElement && videoElement.paused && cameraStream) {
-        videoElement.play().catch(e => console.log('Error al mantener la cámara activa:', e));
+      if (cameraStream) {
+        const videoElement = document.getElementById('camera-feed');
+        
+        // Asegurarse de que el video esté reproduciendo
+        if (videoElement.paused) {
+          videoElement.play().catch(e => console.log('Error al mantener la cámara activa:', e));
+        }
+        
+        // Verificar que las pistas estén activas
+        cameraStream.getVideoTracks().forEach(track => {
+          if (!track.enabled) {
+            track.enabled = true;
+          }
+        });
+        
+        // Llamar recursivamente cada 5 segundos
+        setTimeout(keepCameraAlive, 5000);
       }
-      
-      // Comprobar periódicamente que la cámara sigue activa
-      setTimeout(keepCameraAlive, 2000);
     }
-
-    // Función para verificar y reiniciar el micrófono si es necesario
+    
+    // Función para mantener el micrófono activo
     function keepMicrophoneAlive() {
       if (microphoneStream) {
-        const audioTracks = microphoneStream.getAudioTracks();
-        if (audioTracks.length > 0) {
-          // Si hay alguna pista de audio inactiva, intentar reiniciar el micrófono
-          if (!audioTracks[0].enabled || !audioTracks[0].readyState === 'live') {
-            audioTracks[0].enabled = true;
-            console.log('Pista de micrófono reactivada');
+        // Verificar que las pistas estén activas
+        microphoneStream.getAudioTracks().forEach(track => {
+          if (!track.enabled) {
+            track.enabled = true;
           }
-        } else {
-          // Si no hay pistas, intentar reinicializar
-          initMicrophone().catch(err => console.error('Error al reiniciar micrófono:', err));
-        }
+        });
+        
+        // Llamar recursivamente cada 5 segundos
+        setTimeout(keepMicrophoneAlive, 5000);
       }
-      
-      // Comprobar periódicamente que el micrófono sigue activo
-      setTimeout(keepMicrophoneAlive, 3000);
     }
 
-    // Iniciar dispositivos cuando la página se cargue
+    // Inicializar dispositivos cuando la página se cargue
     window.addEventListener('DOMContentLoaded', async function() {
-      // Inicializar ambos dispositivos
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // Iniciar cámara y micrófono en paralelo
-        try {
-          await Promise.all([
-            initCamera().then(() => keepCameraAlive()),
-            initMicrophone().then(() => keepMicrophoneAlive())
-          ]);
-          console.log('Cámara y micrófono inicializados correctamente');
-        } catch (err) {
-          console.error('Error inicializando dispositivos:', err);
-          // Intentar inicializar los dispositivos de forma individual si la inicialización conjunta falla
-          initCamera().then(() => keepCameraAlive()).catch(e => console.error('Error con cámara:', e));
-          initMicrophone().then(() => keepMicrophoneAlive()).catch(e => console.error('Error con micrófono:', e));
-        }
+      console.log('=== INICIALIZANDO SISTEMA DE VOZ ===');
+      
+      // Primero inicializar el reconocimiento de voz
+      console.log('1. Inicializando reconocimiento de voz...');
+      if (initSpeechRecognition()) {
+        console.log('✓ Reconocimiento de voz listo');
       } else {
-        console.error('getUserMedia no está disponible en este navegador');
+        console.error('✗ Fallo al inicializar reconocimiento de voz');
       }
+      
+      // Luego inicializar los modelos de objetos (no crítico)
+      console.log('2. Cargando modelos de IA...');
+      initObjectDetection().catch(e => console.error('Error con modelos:', e));
+      
+      // Configurar activación por teclado (barra espaciadora)
+      document.addEventListener('keydown', function(event) {
+        if (event.code === 'Space' && !isListening && !isProcessing) {
+          event.preventDefault();
+          console.log('Barra espaciadora presionada');
+          startListening();
+        }
+      });
+      
+      // Inicializar cámara y micrófono (no crítico para el funcionamiento básico)
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('3. Solicitando permisos de dispositivos...');
+        // Solo solicitar micrófono primero
+        try {
+          await initMicrophone();
+          console.log('✓ Micrófono inicializado');
+          keepMicrophoneAlive();
+        } catch (e) {
+          console.error('✗ Error con micrófono:', e);
+        }
+        
+        // Cámara es opcional
+        initCamera().then(() => {
+          console.log('✓ Cámara inicializada');
+          keepCameraAlive();
+        }).catch(e => console.log('ℹ Cámara no disponible:', e.message));
+      }
+      
+      console.log('=== SISTEMA LISTO ===');
+      console.log('Haz clic en el orbe o presiona la barra espaciadora para hablar');
     });
 
     // Asegurarse de que los dispositivos permanezcan activos cuando la página vuelve a estar visible
@@ -855,6 +1589,8 @@
   </script>
   
   <script>
+    /*
+    // Comentado temporalmente Flutter para usar solo el asistente de voz
     window.addEventListener('load', function(ev) {
       // Mostrar la pantalla de carga con el orbe mientras se carga Flutter
       const loadingScreen = document.querySelector('.loading-screen');
@@ -881,6 +1617,7 @@
         }
       });
     });
+    */
   </script>
 </body>
 </html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Prueba Rápida de Voz</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #1a0e3b;
+            color: white;
+        }
+        #orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00BFFF, #8A2BE2);
+            cursor: pointer;
+            transition: transform 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        #orb:hover {
+            transform: scale(1.1);
+        }
+        #orb.listening {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        #status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Estado: Listo</div>
+    <div id="orb" onclick="iniciarEscucha()">
+        Clic aquí
+    </div>
+
+    <script>
+        let recognition;
+        let synth = window.speechSynthesis;
+        
+        // Configurar reconocimiento de voz
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = function() {
+                document.getElementById('orb').classList.add('listening');
+                document.getElementById('status').textContent = 'Estado: Escuchando...';
+                console.log('Escuchando...');
+            };
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                console.log('Texto reconocido:', transcript);
+                document.getElementById('status').textContent = 'Dijiste: ' + transcript;
+                
+                // Responder
+                let respuesta = '';
+                if (transcript.toLowerCase().includes('hola')) {
+                    respuesta = '¡Hola! Te escucho perfectamente.';
+                } else if (transcript.toLowerCase().includes('qué ves')) {
+                    respuesta = 'Soy un asistente de voz. Puedo ayudarte a reconocer objetos.';
+                } else {
+                    respuesta = 'Dijiste: ' + transcript;
+                }
+                
+                hablar(respuesta);
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Error:', event.error);
+                document.getElementById('status').textContent = 'Error: ' + event.error;
+                document.getElementById('orb').classList.remove('listening');
+            };
+            
+            recognition.onend = function() {
+                document.getElementById('orb').classList.remove('listening');
+                console.log('Reconocimiento finalizado');
+            };
+        } else {
+            alert('Tu navegador no soporta reconocimiento de voz');
+        }
+        
+        function iniciarEscucha() {
+            if (recognition) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Error al iniciar:', e);
+                    if (e.name === 'InvalidStateError') {
+                        recognition.stop();
+                        setTimeout(() => recognition.start(), 100);
+                    }
+                }
+            }
+        }
+        
+        function hablar(texto) {
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = 'es-ES';
+            synth.speak(utterance);
+        }
+        
+        // Test automático al cargar
+        window.onload = function() {
+            console.log('Página cargada');
+            console.log('Reconocimiento disponible:', !!recognition);
+            console.log('Síntesis disponible:', !!synth);
+            
+            // Hablar al cargar
+            setTimeout(() => {
+                hablar('Sistema de voz listo. Haz clic en el círculo y di hola.');
+            }, 1000);
+        };
+    </script>
+</body>
+</html> 

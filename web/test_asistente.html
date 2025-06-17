@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Test del Asistente de Voz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .pass { background-color: #d4edda; }
+        .fail { background-color: #f8d7da; }
+        .pending { background-color: #fff3cd; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Pruebas del Asistente de Voz</h1>
+    
+    <div id="tests">
+        <div class="test pending" id="test-browser">
+            <strong>1. Compatibilidad del navegador</strong>
+            <div id="browser-result"></div>
+        </div>
+        
+        <div class="test pending" id="test-camera">
+            <strong>2. Acceso a cámara</strong>
+            <button onclick="testCamera()">Probar Cámara</button>
+            <div id="camera-result"></div>
+        </div>
+        
+        <div class="test pending" id="test-microphone">
+            <strong>3. Acceso a micrófono</strong>
+            <button onclick="testMicrophone()">Probar Micrófono</button>
+            <div id="microphone-result"></div>
+        </div>
+        
+        <div class="test pending" id="test-speech">
+            <strong>4. Síntesis de voz</strong>
+            <button onclick="testSpeech()">Probar Voz</button>
+            <div id="speech-result"></div>
+        </div>
+        
+        <div class="test pending" id="test-recognition">
+            <strong>5. Reconocimiento de voz</strong>
+            <button onclick="testRecognition()">Probar Reconocimiento</button>
+            <div id="recognition-result"></div>
+        </div>
+        
+        <div class="test pending" id="test-tensorflow">
+            <strong>6. TensorFlow.js</strong>
+            <button onclick="testTensorFlow()">Probar IA</button>
+            <div id="tensorflow-result"></div>
+        </div>
+    </div>
+    
+    <h2>📊 Resultados</h2>
+    <div id="results"></div>
+    
+    <script>
+        // Test de compatibilidad del navegador
+        function testBrowser() {
+            const test = document.getElementById('test-browser');
+            const result = document.getElementById('browser-result');
+            
+            const features = {
+                'getUserMedia': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                'speechSynthesis': 'speechSynthesis' in window,
+                'speechRecognition': !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+                'webGL': !!document.createElement('canvas').getContext('webgl')
+            };
+            
+            let allPass = true;
+            let html = '<ul>';
+            for (const [feature, supported] of Object.entries(features)) {
+                html += `<li>${feature}: ${supported ? '✅' : '❌'}</li>`;
+                if (!supported) allPass = false;
+            }
+            html += '</ul>';
+            
+            result.innerHTML = html;
+            test.className = allPass ? 'test pass' : 'test fail';
+            
+            updateResults(`Browser: ${allPass ? 'PASS' : 'FAIL'}`);
+        }
+        
+        // Test de cámara
+        async function testCamera() {
+            const test = document.getElementById('test-camera');
+            const result = document.getElementById('camera-result');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                result.innerHTML = '✅ Cámara funcionando';
+                test.className = 'test pass';
+                stream.getTracks().forEach(track => track.stop());
+                updateResults('Camera: PASS');
+            } catch (error) {
+                result.innerHTML = `❌ Error: ${error.message}`;
+                test.className = 'test fail';
+                updateResults(`Camera: FAIL - ${error.message}`);
+            }
+        }
+        
+        // Test de micrófono
+        async function testMicrophone() {
+            const test = document.getElementById('test-microphone');
+            const result = document.getElementById('microphone-result');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                result.innerHTML = '✅ Micrófono funcionando';
+                test.className = 'test pass';
+                stream.getTracks().forEach(track => track.stop());
+                updateResults('Microphone: PASS');
+            } catch (error) {
+                result.innerHTML = `❌ Error: ${error.message}`;
+                test.className = 'test fail';
+                updateResults(`Microphone: FAIL - ${error.message}`);
+            }
+        }
+        
+        // Test de síntesis de voz
+        function testSpeech() {
+            const test = document.getElementById('test-speech');
+            const result = document.getElementById('speech-result');
+            
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('Probando síntesis de voz');
+                utterance.lang = 'es-ES';
+                speechSynthesis.speak(utterance);
+                result.innerHTML = '✅ Síntesis de voz funcionando';
+                test.className = 'test pass';
+                updateResults('Speech Synthesis: PASS');
+            } else {
+                result.innerHTML = '❌ Síntesis de voz no disponible';
+                test.className = 'test fail';
+                updateResults('Speech Synthesis: FAIL');
+            }
+        }
+        
+        // Test de reconocimiento de voz
+        function testRecognition() {
+            const test = document.getElementById('test-recognition');
+            const result = document.getElementById('recognition-result');
+            
+            if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+                const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = 'es-ES';
+                result.innerHTML = '✅ Reconocimiento de voz disponible';
+                test.className = 'test pass';
+                updateResults('Speech Recognition: PASS');
+            } else {
+                result.innerHTML = '❌ Reconocimiento de voz no disponible';
+                test.className = 'test fail';
+                updateResults('Speech Recognition: FAIL');
+            }
+        }
+        
+        // Test de TensorFlow.js
+        async function testTensorFlow() {
+            const test = document.getElementById('test-tensorflow');
+            const result = document.getElementById('tensorflow-result');
+            
+            try {
+                // Cargar TensorFlow.js
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest';
+                document.head.appendChild(script);
+                
+                await new Promise(resolve => script.onload = resolve);
+                
+                if (window.tf) {
+                    result.innerHTML = '✅ TensorFlow.js cargado';
+                    test.className = 'test pass';
+                    updateResults('TensorFlow.js: PASS');
+                } else {
+                    throw new Error('TensorFlow.js no disponible');
+                }
+            } catch (error) {
+                result.innerHTML = `❌ Error: ${error.message}`;
+                test.className = 'test fail';
+                updateResults(`TensorFlow.js: FAIL - ${error.message}`);
+            }
+        }
+        
+        // Actualizar resultados
+        function updateResults(message) {
+            const results = document.getElementById('results');
+            results.textContent += message + '\n';
+        }
+        
+        // Ejecutar test de navegador al cargar
+        window.onload = function() {
+            testBrowser();
+        };
+    </script>
+</body>
+</html> 
