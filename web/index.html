@@ -149,12 +149,12 @@
       height: 280px;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg);
+      transform: translate(-50%, -50%) !important;
       border-radius: 50%;
       background-color: rgba(0, 0, 50, 0.1);
-      transform-style: preserve-3d;
-      transition: transform 0.2s ease-out;
+      transition: filter 0.2s ease-out;
       overflow: hidden;
+      cursor: pointer;
       box-shadow: 
         0 0 40px var(--orb-glow),
         0 0 80px rgba(0, 191, 255, 0.4),
@@ -639,9 +639,12 @@
       const siriOrb = document.getElementById('siri-orb');
       if (siriOrb) {
         if (isActive) {
-          siriOrb.style.animation = 'pulse 1s infinite alternate';
+          // Solo cambiar el brillo y la sombra, no la posición
+          siriOrb.style.filter = 'brightness(1.3)';
+          siriOrb.style.boxShadow = '0 0 60px var(--orb-glow), 0 0 120px rgba(0, 191, 255, 0.6), inset 0 0 40px rgba(0, 191, 255, 0.3)';
         } else {
-          siriOrb.style.animation = '';
+          siriOrb.style.filter = 'brightness(1)';
+          siriOrb.style.boxShadow = '0 0 40px var(--orb-glow), 0 0 80px rgba(0, 191, 255, 0.4), inset 0 0 30px rgba(0, 191, 255, 0.2)';
         }
       }
     }
@@ -769,79 +772,29 @@
     
     // Función para inicializar las interacciones del orb
     function initOrbInteraction(orbContainer, siriOrb) {
-      // Variables para el seguimiento del movimiento del mouse
-      let mouseX = 0;
-      let mouseY = 0;
-      let targetX = 0;
-      let targetY = 0;
-      let isMoving = false;
+      console.log('Inicializando interacción del orbe (sin movimiento)');
       
-      // Movimiento suave basado en el movimiento del mouse
-      document.addEventListener('mousemove', function(e) {
-        // Calcular la posición relativa del mouse
-        mouseX = (e.clientX / window.innerWidth - 0.5) * 2; // -1 a 1
-        mouseY = (e.clientY / window.innerHeight - 0.5) * 2; // -1 a 1
-        
-        isMoving = true;
-      });
+      // Mantener el orbe fijo en el centro sin seguimiento del mouse
+      siriOrb.style.transform = 'translate(-50%, -50%)';
       
-      // Función de animación para un movimiento más suave
-      function animateOrb() {
-        if (isMoving) {
-          // Interpolación suave
-          targetX += (mouseX * 15 - targetX) * 0.1;
-          targetY += (mouseY * -15 - targetY) * 0.1;
-          
-          // Aplicar rotación con límites
-          siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg)`;
-          
-          // Las animaciones CSS se encargan ahora de las rotaciones de las capas internas
-        }
-        
-        requestAnimationFrame(animateOrb);
-      }
-      
-      // Iniciar la animación
-      animateOrb();
-      
-      // Soporte para dispositivos móviles
-      siriOrb.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        if (e.touches.length === 1) {
-          const touch = e.touches[0];
-          mouseX = (touch.clientX / window.innerWidth - 0.5) * 2;
-          mouseY = (touch.clientY / window.innerHeight - 0.5) * 2;
-          isMoving = true;
-        }
-      });
-      
-      // Soporte para giroscopio en dispositivos móviles
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', function(e) {
-          if (e.beta && e.gamma) {
-            mouseX = e.gamma / 45; // Convertir a un rango aproximado de -1 a 1
-            mouseY = e.beta / 45; // Convertir a un rango aproximado de -1 a 1
-            isMoving = true;
-          }
-        });
-      }
-      
-      // Efecto de clic/toque
+      // Solo efectos de clic/toque sin movimiento
       siriOrb.addEventListener('mousedown', function() {
-        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(0.95)`;
+        // Solo un pequeño efecto de escala al hacer clic
+        siriOrb.style.filter = 'brightness(0.8)';
       });
       
       siriOrb.addEventListener('mouseup', function() {
-        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(1)`;
+        siriOrb.style.filter = 'brightness(1)';
       });
       
-      siriOrb.addEventListener('touchstart', function() {
-        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(0.95)`;
+      siriOrb.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        siriOrb.style.filter = 'brightness(0.8)';
         startListening(); // Activar reconocimiento de voz al tocar el orbe
       });
       
       siriOrb.addEventListener('touchend', function() {
-        siriOrb.style.transform = `translate(-50%, -50%) rotateY(${targetX}deg) rotateX(${targetY}deg) scale(1)`;
+        siriOrb.style.filter = 'brightness(1)';
       });
       
       // Activar reconocimiento de voz al hacer clic en el orbe
